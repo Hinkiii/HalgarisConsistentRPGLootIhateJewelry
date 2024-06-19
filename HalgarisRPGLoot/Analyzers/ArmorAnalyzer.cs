@@ -11,6 +11,7 @@ using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Synthesis;
 using System.Threading.Tasks;
+using System.Threading;
 namespace HalgarisRPGLoot.Analyzers
 {
     public class ArmorAnalyzer : GearAnalyzer<IArmorGetter>
@@ -234,13 +235,19 @@ namespace HalgarisRPGLoot.Analyzers
 
         private readonly object _lock = new object();
 
-        private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IArmorGetter>> items, int rarity)
+    private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IArmorGetter>> items, int rarity)
+    {
+        int totalItems = items.Count();
+        int currentItem = 0;
+
+        Parallel.ForEach(items, item =>
         {
-            Parallel.ForEach(items, item =>
-            {
-                EnchantItem(item, rarity);
-            });
-        }
+            int itemNumber = Interlocked.Increment(ref currentItem);
+            Console.WriteLine($"Generating item {itemNumber} of {totalItems}");
+
+            EnchantItem(item, rarity);
+        });
+    }
 
 
         // ReSharper disable once UnusedMember.Local

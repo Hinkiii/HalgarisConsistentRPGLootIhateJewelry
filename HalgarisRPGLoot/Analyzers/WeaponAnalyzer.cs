@@ -11,6 +11,7 @@ using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Synthesis;
 using System.Threading.Tasks;
+using System.Threading;
 namespace HalgarisRPGLoot.Analyzers
 {
     public class WeaponAnalyzer : GearAnalyzer<IWeaponGetter>
@@ -235,8 +236,13 @@ namespace HalgarisRPGLoot.Analyzers
 
         private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IWeaponGetter>> items, int rarity)
         {
+            int totalItems = items.Count();
+            int currentItem = 0;
+
             Parallel.ForEach(items, item =>
             {
+                int itemNumber = Interlocked.Increment(ref currentItem);
+                Console.WriteLine($"Generating item {itemNumber} of {totalItems}");
                 EnchantItem(item, rarity);
             });
         }
