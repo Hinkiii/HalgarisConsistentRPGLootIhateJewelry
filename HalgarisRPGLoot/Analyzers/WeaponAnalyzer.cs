@@ -74,14 +74,44 @@ namespace HalgarisRPGLoot.Analyzers
                                                                      Entry = entry,
                                                                      Resolved = resolved
                                                                  };
-                                                             }).Where(resolvedListItem => resolvedListItem != default)
-                                                             ?? Array.Empty<ResolvedListItem<IWeaponGetter>>())
-                .Where(e =>
+            }).Where(resolvedListItem => resolvedListItem != default)
+            ?? Array.Empty<ResolvedListItem<IWeaponGetter>>())
+            .Where(e =>
+            {
+                var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
+                if (Extensions.CheckKeywords(kws)) return false;
+
+                switch (_settings.ListMode)
                 {
-                    var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
-                        return !Extensions.CheckKeywords(kws);
-                })
-                .ToHashSet();
+                    case ListMode.Blacklist:
+                        switch (_settings.PluginListMode)
+                        {
+                            case ListMode.Blacklist:
+                                return !_settings.ItemList.Contains(e.Resolved) &&
+                                    !pluginItems.Contains(e.Resolved);
+                            case ListMode.Whitelist:
+                                return !_settings.ItemList.Contains(e.Resolved) &&
+                                    pluginItems.Contains(e.Resolved);
+                            default:
+                                throw new();
+                        }
+                    case ListMode.Whitelist:
+                        switch (_settings.PluginListMode)
+                        {
+                            case ListMode.Blacklist:
+                                return _settings.ItemList.Contains(e.Resolved) ||
+                                    !pluginItems.Contains(e.Resolved);
+                            case ListMode.Whitelist:
+                                return _settings.ItemList.Contains(e.Resolved) ||
+                                    pluginItems.Contains(e.Resolved);
+                            default:
+                                throw new();
+                        }
+                    default:
+                        throw new();
+                }
+            })
+            .ToHashSet();
 
             AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull).ToHashSet();
 
