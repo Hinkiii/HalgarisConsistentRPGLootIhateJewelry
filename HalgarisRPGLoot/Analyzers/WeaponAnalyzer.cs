@@ -10,8 +10,7 @@ using Mutagen.Bethesda.Plugins.Records;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Synthesis;
-using System.Threading.Tasks;
-using System.Threading;
+
 namespace HalgarisRPGLoot.Analyzers
 {
     public class WeaponAnalyzer : GearAnalyzer<IWeaponGetter>
@@ -56,7 +55,6 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override void AnalyzeGear()
         {
-            var blacklistedPlugins = Program.Settings.EnchantmentSettings.PluginList; // Use PluginList from EnchantmentSettings
             AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
             AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
@@ -70,11 +68,6 @@ namespace HalgarisRPGLoot.Analyzers
                                                                      return default;
                                                                  if (resolved.MajorFlags.HasFlag(Weapon.MajorFlag
                                                                          .NonPlayable)) return default;
-                                                                // Check if the item's plugin is blacklisted
-                                                                var pluginKey = entry.Data.Reference.FormKey.ModKey;
-                                                                if (blacklistedPlugins.Contains(pluginKey))
-                                                                    return default;
-
                                                                  return new ResolvedListItem<IWeaponGetter>
                                                                  {
                                                                      List = lst,
@@ -173,86 +166,63 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override FormKey EnchantItem(ResolvedListItem<IWeaponGetter> item, int rarity)
         {
-            lock (this)
+            if (!(item.Resolved?.Name?.TryLookup(Language.English, out var itemName) ?? false))
             {
-                if (!(item.Resolved?.Name?.TryLookup(Language.English, out var itemName) ?? false))
+                itemName = MakeName(item.Resolved!.EditorID);
+            }
+            
+            if (RarityClasses[rarity].NumEnchantments != 0)
+            {
+                var generatedEnchantmentFormKey = GenerateEnchantment(rarity);
+                var effects = ChosenRpgEnchantEffects[rarity].GetValueOrDefault(generatedEnchantmentFormKey);
+                var newWeaponEditorId = EditorIdPrefix + RarityClasses[rarity].Label.ToUpper() + "_" +
+                                        itemName +
+                                        "_of_" + GetEnchantmentsStringForName(effects, true);
+                if (State.LinkCache.TryResolve<IWeaponGetter>(newWeaponEditorId, out var weaponGetter))
                 {
-                    itemName = MakeName(item.Resolved!.EditorID);
+                    return weaponGetter.FormKey;
                 }
 
-                if (RarityClasses[rarity].NumEnchantments != 0)
+                Console.WriteLine("Generating Enchanted version of " + itemName);
+                var newWeapon = State.PatchMod.Weapons.AddNewLocking(State.PatchMod.GetNextFormKey());
+                newWeapon.DeepCopyIn(item.Resolved);
+                newWeapon.EditorID = newWeaponEditorId;
+                newWeapon.ObjectEffect.SetTo(generatedEnchantmentFormKey);
+                newWeapon.EnchantmentAmount = (ushort) effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
+                newWeapon.Name = RarityClasses[rarity].Label + " " + itemName + " of " +
+                                 GetEnchantmentsStringForName(effects);
+                newWeapon.Template = (IFormLinkNullable<IWeaponGetter>) item.Resolved.ToNullableLinkGetter();
+
+                if (!RarityClasses[rarity].AllowDisenchanting)
                 {
-                    var generatedEnchantmentFormKey = GenerateEnchantment(rarity);
-                    var effects = ChosenRpgEnchantEffects[rarity].GetValueOrDefault(generatedEnchantmentFormKey);
-                    var newWeaponEditorId = EditorIdPrefix + RarityClasses[rarity].Label.ToUpper() + "_" +
-                                            itemName +
-                                            "_of_" + GetEnchantmentsStringForName(effects, true);
-                    if (State.LinkCache.TryResolve<IWeaponGetter>(newWeaponEditorId, out var weaponGetter))
-                    {
-                        return weaponGetter.FormKey;
-                    }
-
-                    Console.WriteLine("Generating Enchanted version of " + itemName);
-                    var newWeapon = State.PatchMod.Weapons.AddNewLocking(State.PatchMod.GetNextFormKey());
-                    newWeapon.DeepCopyIn(item.Resolved);
-                    newWeapon.EditorID = newWeaponEditorId;
-                    newWeapon.ObjectEffect.SetTo(generatedEnchantmentFormKey);
-                    newWeapon.EnchantmentAmount = (ushort)effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
-                    newWeapon.Name = RarityClasses[rarity].Label + " " + itemName + " of " +
-                                    GetEnchantmentsStringForName(effects);
-                    newWeapon.Template = (IFormLinkNullable<IWeaponGetter>)item.Resolved.ToNullableLinkGetter();
-
-                    if (!RarityClasses[rarity].AllowDisenchanting)
-                    {
-                        newWeapon.Keywords?.Add(Skyrim.Keyword.MagicDisallowEnchanting);
-                    }
-
-                    Console.WriteLine("Generated " + newWeapon.Name);
-                    return newWeapon.FormKey;
+                    newWeapon.Keywords?.Add(Skyrim.Keyword.MagicDisallowEnchanting);
                 }
-                else
+                
+                Console.WriteLine("Generated " + newWeapon.Name);
+                return newWeapon.FormKey;
+            }
+            else
+            {
+                Console.WriteLine("Generating unenchanted version of " + itemName);
+                var newWeaponEditorId = EditorIdPrefix + item.Resolved.EditorID;
+                if (State.LinkCache.TryResolve<IWeaponGetter>(newWeaponEditorId, out var weaponGetter))
                 {
-                    Console.WriteLine("Generating unenchanted version of " + itemName);
-                    var newWeaponEditorId = EditorIdPrefix + item.Resolved.EditorID;
-                    if (State.LinkCache.TryResolve<IWeaponGetter>(newWeaponEditorId, out var weaponGetter))
-                    {
-                        return weaponGetter.FormKey;
-                    }
-                    var newWeapon = State.PatchMod.Weapons.AddNewLocking(State.PatchMod.GetNextFormKey());
-                    newWeapon.DeepCopyIn(item.Resolved);
-                    newWeapon.EditorID = newWeaponEditorId;
-
-                    newWeapon.Name = RarityClasses[rarity].Label.Equals("")
-                        ? itemName
-                        : RarityClasses[rarity].Label + " " + itemName;
-
-                    Console.WriteLine("Generated " + newWeapon.Name);
-
-
-                    return newWeapon.FormKey;
+                    return weaponGetter.FormKey;
                 }
+                var newWeapon = State.PatchMod.Weapons.AddNewLocking(State.PatchMod.GetNextFormKey());
+                newWeapon.DeepCopyIn(item.Resolved);
+                newWeapon.EditorID = newWeaponEditorId;
+
+                newWeapon.Name = RarityClasses[rarity].Label.Equals("")
+                    ? itemName
+                    : RarityClasses[rarity].Label + " " + itemName;
+
+                Console.WriteLine("Generated " + newWeapon.Name);
+
+
+                return newWeapon.FormKey;
             }
         }
-
-        private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IWeaponGetter>> items, int rarity)
-        {
-            int totalItems = items.Count();
-            int currentItem = 0;
-
-            Parallel.ForEach(items, item =>
-            {
-                int itemNumber = Interlocked.Increment(ref currentItem);
-                Console.WriteLine($"Generating item {itemNumber} of {totalItems}");
-                EnchantItem(item, rarity);
-
-                lock (Console.Out)
-                {
-                    Console.SetCursorPosition(0, Console.CursorTop);
-                    Console.Write($"Progress: {itemNumber} / {totalItems}");
-                }
-            });
-        }
-
 
         // ReSharper disable once UnusedMember.Local
         private static char[] _unusedNumbers = "123456890".ToCharArray();

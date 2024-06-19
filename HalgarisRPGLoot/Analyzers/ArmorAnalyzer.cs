@@ -10,8 +10,7 @@ using Mutagen.Bethesda.Plugins.Records;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Synthesis;
-using System.Threading.Tasks;
-using System.Threading;
+
 namespace HalgarisRPGLoot.Analyzers
 {
     public class ArmorAnalyzer : GearAnalyzer<IArmorGetter>
@@ -54,41 +53,41 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override void AnalyzeGear()
         {
-        var blacklistedPlugins = Program.Settings.EnchantmentSettings.PluginList; // Use PluginList from EnchantmentSettings
+            var blacklistedPlugins = Program.Settings.EnchantmentSettings.PluginList; // Use PluginList from EnchantmentSettings
 
-        AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
+            AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
-        AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
-                                                        {
-                                                            if (entry.Data?.Reference.FormKey == default)
-                                                                return default;
-                                                            if (entry.Data == null) return default;
-                                                            if (!State.LinkCache.TryResolve<IArmorGetter>(
-                                                                    entry.Data.Reference.FormKey,
-                                                                    out var resolved))
-                                                                return default;
-                                                            if (resolved.MajorFlags.HasFlag(Armor.MajorFlag
-                                                                    .NonPlayable)) return default;
-
-                                                            // Check if the item's plugin is blacklisted
-                                                            var pluginKey = entry.Data.Reference.FormKey.ModKey;
-                                                            if (blacklistedPlugins.Contains(pluginKey))
-                                                                return default;
-
-                                                            return new ResolvedListItem<IArmorGetter>
+            AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
                                                             {
-                                                                List = lst,
-                                                                Entry = entry,
-                                                                Resolved = resolved
-                                                            };
-                                                        }).Where(resolvedListItem => resolvedListItem != default)
-                                                        ?? Array.Empty<ResolvedListItem<IArmorGetter>>())
-            .Where(e =>
-            {
-                var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
-                return !Extensions.CheckKeywords(kws);
-            })
-            .ToHashSet();
+                                                                if (entry.Data?.Reference.FormKey == default)
+                                                                    return default;
+                                                                if (entry.Data == null) return default;
+                                                                if (!State.LinkCache.TryResolve<IArmorGetter>(
+                                                                        entry.Data.Reference.FormKey,
+                                                                        out var resolved))
+                                                                    return default;
+                                                                if (resolved.MajorFlags.HasFlag(Armor.MajorFlag
+                                                                        .NonPlayable)) return default;
+
+                                                                // Check if the item's plugin is blacklisted
+                                                                var pluginKey = entry.Data.Reference.FormKey.ModKey;
+                                                                if (blacklistedPlugins.Contains(pluginKey))
+                                                                    return default;
+
+                                                                return new ResolvedListItem<IArmorGetter>
+                                                                {
+                                                                    List = lst,
+                                                                    Entry = entry,
+                                                                    Resolved = resolved
+                                                                };
+                                                            }).Where(resolvedListItem => resolvedListItem != default)
+                                                            ?? Array.Empty<ResolvedListItem<IArmorGetter>>())
+                .Where(e =>
+                {
+                    var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
+                    return !Extensions.CheckKeywords(kws);
+                })
+                .ToHashSet();
 
             AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull).ToHashSet();
 
@@ -172,88 +171,81 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override FormKey EnchantItem(ResolvedListItem<IArmorGetter> item, int rarity)
         {
-            lock (this)
+            if (!(item.Resolved.Name?.TryLookup(Language.English, out var itemName) ?? false))
             {
-                if (!(item.Resolved.Name?.TryLookup(Language.English, out var itemName) ?? false))
+                itemName = MakeName(item.Resolved.EditorID);
+            }
+
+            if (RarityClasses[rarity].NumEnchantments != 0)
+            {
+                var generatedEnchantmentFormKey = GenerateEnchantment(rarity);
+                var effects = ChosenRpgEnchantEffects[rarity].GetValueOrDefault(generatedEnchantmentFormKey);
+                var newArmorEditorId = EditorIdPrefix + RarityClasses[rarity].Label.ToUpper() + "_" +
+                                       itemName +
+                                       "_of_" + GetEnchantmentsStringForName(effects, true);
+                if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
                 {
-                    itemName = MakeName(item.Resolved.EditorID);
+                    return armorGetter.FormKey;
                 }
 
-                if (RarityClasses[rarity].NumEnchantments != 0)
+                Console.WriteLine("Generating Enchanted version of " + itemName);
+                var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
+                newArmor.DeepCopyIn(item.Resolved);
+                newArmor.EditorID = newArmorEditorId;
+                newArmor.ObjectEffect.SetTo(generatedEnchantmentFormKey);
+                newArmor.EnchantmentAmount = (ushort) effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
+                newArmor.Name = RarityClasses[rarity].Label + " " + itemName + " of " +
+                                GetEnchantmentsStringForName(effects);
+                newArmor.TemplateArmor = (IFormLinkNullable<IArmorGetter>) item.Resolved.ToNullableLinkGetter();
+
+                if (!RarityClasses[rarity].AllowDisenchanting)
                 {
-                    var generatedEnchantmentFormKey = GenerateEnchantment(rarity);
-                    var effects = ChosenRpgEnchantEffects[rarity].GetValueOrDefault(generatedEnchantmentFormKey);
-                    var newArmorEditorId = EditorIdPrefix + RarityClasses[rarity].Label.ToUpper() + "_" +
-                                        itemName +
-                                        "_of_" + GetEnchantmentsStringForName(effects, true);
-                    if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
-                    {
-                        return armorGetter.FormKey;
-                    }
-
-                    Console.WriteLine("Generating Enchanted version of " + itemName);
-                    var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
-                    newArmor.DeepCopyIn(item.Resolved);
-                    newArmor.EditorID = newArmorEditorId;
-                    newArmor.ObjectEffect.SetTo(generatedEnchantmentFormKey);
-                    newArmor.EnchantmentAmount = (ushort)effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
-                    newArmor.Name = RarityClasses[rarity].Label + " " + itemName + " of " +
-                                    GetEnchantmentsStringForName(effects);
-                    newArmor.TemplateArmor = (IFormLinkNullable<IArmorGetter>)item.Resolved.ToNullableLinkGetter();
-
-                    if (!RarityClasses[rarity].AllowDisenchanting)
-                    {
-                        newArmor.Keywords?.Add(Skyrim.Keyword.MagicDisallowEnchanting);
-                    }
-
-                    Console.WriteLine("Generated " + newArmor.Name);
-                    return newArmor.FormKey;
+                    newArmor.Keywords?.Add(Skyrim.Keyword.MagicDisallowEnchanting);
                 }
-                else
+
+                Console.WriteLine("Generated " + newArmor.Name);
+                PrintProgressBar();
+                return newArmor.FormKey;
+            }
+            else
+            {
+                Console.WriteLine("Generating unenchanted version of " + itemName);
+                var newArmorEditorId = EditorIdPrefix + item.Resolved.EditorID;
+                if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
                 {
-                    Console.WriteLine("Generating unenchanted version of " + itemName);
-                    var newArmorEditorId = EditorIdPrefix + item.Resolved.EditorID;
-                    if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
-                    {
-                        return State.PatchMod.Armors.GetOrAddAsOverride(armorGetter).FormKey;
-                    }
-
-                    var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
-                    newArmor.DeepCopyIn(item.Resolved);
-                    newArmor.EditorID = newArmorEditorId;
-
-                    newArmor.Name = RarityClasses[rarity].Label.Equals("")
-                        ? itemName
-                        : RarityClasses[rarity].Label + " " + itemName;
-
-                    Console.WriteLine("Generated " + newArmor.Name);
-
-                    return newArmor.FormKey;
+                    PrintProgressBar();
+                    return State.PatchMod.Armors.GetOrAddAsOverride(armorGetter).FormKey;
                 }
+
+                var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
+                newArmor.DeepCopyIn(item.Resolved);
+                newArmor.EditorID = newArmorEditorId;
+
+                newArmor.Name = RarityClasses[rarity].Label.Equals("")
+                    ? itemName
+                    : RarityClasses[rarity].Label + " " + itemName;
+
+                Console.WriteLine("Generated " + newArmor.Name);
+                PrintProgressBar();
+                return newArmor.FormKey;
             }
         }
 
-        private readonly object _lock = new object();
+        private int _processedItems = 0;
+        private int _totalItems = 0;
 
-        private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IArmorGetter>> items, int rarity)
+        public void SetTotalItems(int totalItems)
         {
-            int totalItems = items.Count();
-            int currentItem = 0;
-
-            Parallel.ForEach(items, item =>
-            {
-                int itemNumber = Interlocked.Increment(ref currentItem);
-                Console.WriteLine($"Generating item {itemNumber} of {totalItems}");
-                EnchantItem(item, rarity);
-
-                lock (Console.Out)
-                {
-                    Console.SetCursorPosition(0, Console.CursorTop);
-                    Console.Write($"Progress: {itemNumber} / {totalItems}");
-                }
-            });
+            _totalItems = totalItems;
         }
 
+        private void PrintProgressBar()
+        {
+            _processedItems++;
+            int progress = (int)((double)_processedItems / _totalItems * 50); // Length of the bar
+            string bar = new string('#', progress) + new string('-', 50 - progress);
+            Console.WriteLine($"Progress: [{bar}] {_processedItems}/{_totalItems}");
+        }
 
         // ReSharper disable once UnusedMember.Local
         private static char[] _unusedNumbers = "123456890".ToCharArray();
