@@ -10,7 +10,7 @@ using Mutagen.Bethesda.Plugins.Records;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Synthesis;
-
+using System.Threading.Tasks;
 namespace HalgarisRPGLoot.Analyzers
 {
     public class ArmorAnalyzer : GearAnalyzer<IArmorGetter>
@@ -168,35 +168,32 @@ namespace HalgarisRPGLoot.Analyzers
                 }
             }
         }
-
         protected override FormKey EnchantItem(ResolvedListItem<IArmorGetter> item, int rarity)
         {
-            if (!(item.Resolved.Name?.TryLookup(Language.English, out var itemName) ?? false))
-            {
-                itemName = MakeName(item.Resolved.EditorID);
-            }
-
             if (RarityClasses[rarity].NumEnchantments != 0)
             {
                 var generatedEnchantmentFormKey = GenerateEnchantment(rarity);
                 var effects = ChosenRpgEnchantEffects[rarity].GetValueOrDefault(generatedEnchantmentFormKey);
+                var itemName = GetItemName(item.Resolved.Name, item.Resolved.EditorID);
                 var newArmorEditorId = EditorIdPrefix + RarityClasses[rarity].Label.ToUpper() + "_" +
-                                       itemName +
-                                       "_of_" + GetEnchantmentsStringForName(effects, true);
+                                        itemName +
+                                        "_of_" + GetEnchantmentsStringForName(effects, true);
+
                 if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
                 {
                     return armorGetter.FormKey;
                 }
 
                 Console.WriteLine("Generating Enchanted version of " + itemName);
+
                 var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
                 newArmor.DeepCopyIn(item.Resolved);
                 newArmor.EditorID = newArmorEditorId;
                 newArmor.ObjectEffect.SetTo(generatedEnchantmentFormKey);
-                newArmor.EnchantmentAmount = (ushort) effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
+                newArmor.EnchantmentAmount = (ushort)effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
                 newArmor.Name = RarityClasses[rarity].Label + " " + itemName + " of " +
                                 GetEnchantmentsStringForName(effects);
-                newArmor.TemplateArmor = (IFormLinkNullable<IArmorGetter>) item.Resolved.ToNullableLinkGetter();
+                newArmor.TemplateArmor = (IFormLinkNullable<IArmorGetter>)item.Resolved.ToNullableLinkGetter();
 
                 if (!RarityClasses[rarity].AllowDisenchanting)
                 {
@@ -204,11 +201,13 @@ namespace HalgarisRPGLoot.Analyzers
                 }
 
                 Console.WriteLine("Generated " + newArmor.Name);
+
                 return newArmor.FormKey;
             }
             else
             {
-                Console.WriteLine("Generating unenchanted version of " + itemName);
+                Console.WriteLine("Generating unenchanted version of " + item.Resolved.Name);
+
                 var newArmorEditorId = EditorIdPrefix + item.Resolved.EditorID;
                 if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
                 {
@@ -220,12 +219,25 @@ namespace HalgarisRPGLoot.Analyzers
                 newArmor.EditorID = newArmorEditorId;
 
                 newArmor.Name = RarityClasses[rarity].Label.Equals("")
-                    ? itemName
-                    : RarityClasses[rarity].Label + " " + itemName;
+                    ? item.Resolved.Name
+                    : RarityClasses[rarity].Label + " " + item.Resolved.Name;
 
                 Console.WriteLine("Generated " + newArmor.Name);
 
                 return newArmor.FormKey;
+            }
+        }
+
+        // Helper method to get the item name
+        private string GetItemName(INamedGetter? namedGetter, string editorId)
+        {
+            if (namedGetter?.TryLookup(Language.English, out var itemName) ?? false)
+            {
+                return itemName;
+            }
+            else
+            {
+                return MakeName(editorId);
             }
         }
 
