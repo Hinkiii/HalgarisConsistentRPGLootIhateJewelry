@@ -10,7 +10,7 @@ using Mutagen.Bethesda.Plugins.Records;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Strings;
 using Mutagen.Bethesda.Synthesis;
-
+using System.Threading.Tasks;
 namespace HalgarisRPGLoot.Analyzers
 {
     public class ArmorAnalyzer : GearAnalyzer<IArmorGetter>
@@ -171,63 +171,77 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override FormKey EnchantItem(ResolvedListItem<IArmorGetter> item, int rarity)
         {
-            if (!(item.Resolved.Name?.TryLookup(Language.English, out var itemName) ?? false))
+            lock (this)
             {
-                itemName = MakeName(item.Resolved.EditorID);
-            }
-
-            if (RarityClasses[rarity].NumEnchantments != 0)
-            {
-                var generatedEnchantmentFormKey = GenerateEnchantment(rarity);
-                var effects = ChosenRpgEnchantEffects[rarity].GetValueOrDefault(generatedEnchantmentFormKey);
-                var newArmorEditorId = EditorIdPrefix + RarityClasses[rarity].Label.ToUpper() + "_" +
-                                       itemName +
-                                       "_of_" + GetEnchantmentsStringForName(effects, true);
-                if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
+                if (!(item.Resolved.Name?.TryLookup(Language.English, out var itemName) ?? false))
                 {
-                    return armorGetter.FormKey;
+                    itemName = MakeName(item.Resolved.EditorID);
                 }
 
-                Console.WriteLine("Generating Enchanted version of " + itemName);
-                var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
-                newArmor.DeepCopyIn(item.Resolved);
-                newArmor.EditorID = newArmorEditorId;
-                newArmor.ObjectEffect.SetTo(generatedEnchantmentFormKey);
-                newArmor.EnchantmentAmount = (ushort) effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
-                newArmor.Name = RarityClasses[rarity].Label + " " + itemName + " of " +
-                                GetEnchantmentsStringForName(effects);
-                newArmor.TemplateArmor = (IFormLinkNullable<IArmorGetter>) item.Resolved.ToNullableLinkGetter();
-
-                if (!RarityClasses[rarity].AllowDisenchanting)
+                if (RarityClasses[rarity].NumEnchantments != 0)
                 {
-                    newArmor.Keywords?.Add(Skyrim.Keyword.MagicDisallowEnchanting);
-                }
+                    var generatedEnchantmentFormKey = GenerateEnchantment(rarity);
+                    var effects = ChosenRpgEnchantEffects[rarity].GetValueOrDefault(generatedEnchantmentFormKey);
+                    var newArmorEditorId = EditorIdPrefix + RarityClasses[rarity].Label.ToUpper() + "_" +
+                                        itemName +
+                                        "_of_" + GetEnchantmentsStringForName(effects, true);
+                    if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
+                    {
+                        return armorGetter.FormKey;
+                    }
 
-                Console.WriteLine("Generated " + newArmor.Name);
-                return newArmor.FormKey;
-            }
-            else
-            {
-                Console.WriteLine("Generating unenchanted version of " + itemName);
-                var newArmorEditorId = EditorIdPrefix + item.Resolved.EditorID;
-                if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
+                    Console.WriteLine("Generating Enchanted version of " + itemName);
+                    var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
+                    newArmor.DeepCopyIn(item.Resolved);
+                    newArmor.EditorID = newArmorEditorId;
+                    newArmor.ObjectEffect.SetTo(generatedEnchantmentFormKey);
+                    newArmor.EnchantmentAmount = (ushort)effects.Where(e => e.Amount.HasValue).Sum(e => e.Amount.Value);
+                    newArmor.Name = RarityClasses[rarity].Label + " " + itemName + " of " +
+                                    GetEnchantmentsStringForName(effects);
+                    newArmor.TemplateArmor = (IFormLinkNullable<IArmorGetter>)item.Resolved.ToNullableLinkGetter();
+
+                    if (!RarityClasses[rarity].AllowDisenchanting)
+                    {
+                        newArmor.Keywords?.Add(Skyrim.Keyword.MagicDisallowEnchanting);
+                    }
+
+                    Console.WriteLine("Generated " + newArmor.Name);
+                    return newArmor.FormKey;
+                }
+                else
                 {
-                    return State.PatchMod.Armors.GetOrAddAsOverride(armorGetter).FormKey;
+                    Console.WriteLine("Generating unenchanted version of " + itemName);
+                    var newArmorEditorId = EditorIdPrefix + item.Resolved.EditorID;
+                    if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
+                    {
+                        return State.PatchMod.Armors.GetOrAddAsOverride(armorGetter).FormKey;
+                    }
+
+                    var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
+                    newArmor.DeepCopyIn(item.Resolved);
+                    newArmor.EditorID = newArmorEditorId;
+
+                    newArmor.Name = RarityClasses[rarity].Label.Equals("")
+                        ? itemName
+                        : RarityClasses[rarity].Label + " " + itemName;
+
+                    Console.WriteLine("Generated " + newArmor.Name);
+
+                    return newArmor.FormKey;
                 }
-
-                var newArmor = State.PatchMod.Armors.AddNewLocking(State.PatchMod.GetNextFormKey());
-                newArmor.DeepCopyIn(item.Resolved);
-                newArmor.EditorID = newArmorEditorId;
-
-                newArmor.Name = RarityClasses[rarity].Label.Equals("")
-                    ? itemName
-                    : RarityClasses[rarity].Label + " " + itemName;
-
-                Console.WriteLine("Generated " + newArmor.Name);
-
-                return newArmor.FormKey;
             }
         }
+
+        private readonly object _lock = new object();
+
+        private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IArmorGetter>> items, int rarity)
+        {
+            Parallel.ForEach(items, item =>
+            {
+                EnchantItem(item, rarity);
+            });
+        }
+
 
         // ReSharper disable once UnusedMember.Local
         private static char[] _unusedNumbers = "123456890".ToCharArray();
