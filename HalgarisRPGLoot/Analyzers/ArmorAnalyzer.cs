@@ -53,41 +53,41 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override void AnalyzeGear()
         {
-            var blacklistedPlugins = Program.Settings.EnchantmentSettings.PluginList; // Use PluginList from EnchantmentSettings
+        var blacklistedPlugins = Program.Settings.EnchantmentSettings.PluginList; // Use PluginList from EnchantmentSettings
 
-            AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
+        AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
-            AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
+        AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
+                                                        {
+                                                            if (entry.Data?.Reference.FormKey == default)
+                                                                return default;
+                                                            if (entry.Data == null) return default;
+                                                            if (!State.LinkCache.TryResolve<IArmorGetter>(
+                                                                    entry.Data.Reference.FormKey,
+                                                                    out var resolved))
+                                                                return default;
+                                                            if (resolved.MajorFlags.HasFlag(Armor.MajorFlag
+                                                                    .NonPlayable)) return default;
+
+                                                            // Check if the item's plugin is blacklisted
+                                                            var pluginKey = entry.Data.Reference.FormKey.ModKey;
+                                                            if (blacklistedPlugins.Contains(pluginKey))
+                                                                return default;
+
+                                                            return new ResolvedListItem<IArmorGetter>
                                                             {
-                                                                if (entry.Data?.Reference.FormKey == default)
-                                                                    return default;
-                                                                if (entry.Data == null) return default;
-                                                                if (!State.LinkCache.TryResolve<IArmorGetter>(
-                                                                        entry.Data.Reference.FormKey,
-                                                                        out var resolved))
-                                                                    return default;
-                                                                if (resolved.MajorFlags.HasFlag(Armor.MajorFlag
-                                                                        .NonPlayable)) return default;
-
-                                                                // Check if the item's plugin is blacklisted
-                                                                var pluginKey = entry.Data.Reference.FormKey.ModKey;
-                                                                if (blacklistedPlugins.Contains(pluginKey))
-                                                                    return default;
-
-                                                                return new ResolvedListItem<IArmorGetter>
-                                                                {
-                                                                    List = lst,
-                                                                    Entry = entry,
-                                                                    Resolved = resolved
-                                                                };
-                                                            }).Where(resolvedListItem => resolvedListItem != default)
-                                                            ?? Array.Empty<ResolvedListItem<IArmorGetter>>())
-                .Where(e =>
-                {
-                    var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
-                    return !Extensions.CheckKeywords(kws);
-                })
-                .ToHashSet();
+                                                                List = lst,
+                                                                Entry = entry,
+                                                                Resolved = resolved
+                                                            };
+                                                        }).Where(resolvedListItem => resolvedListItem != default)
+                                                        ?? Array.Empty<ResolvedListItem<IArmorGetter>>())
+            .Where(e =>
+            {
+                var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
+                return !Extensions.CheckKeywords(kws);
+            })
+            .ToHashSet();
 
             AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull).ToHashSet();
 
@@ -204,7 +204,6 @@ namespace HalgarisRPGLoot.Analyzers
                 }
 
                 Console.WriteLine("Generated " + newArmor.Name);
-                PrintProgressBar();
                 return newArmor.FormKey;
             }
             else
@@ -213,7 +212,6 @@ namespace HalgarisRPGLoot.Analyzers
                 var newArmorEditorId = EditorIdPrefix + item.Resolved.EditorID;
                 if (State.LinkCache.TryResolve<IArmorGetter>(newArmorEditorId, out var armorGetter))
                 {
-                    PrintProgressBar();
                     return State.PatchMod.Armors.GetOrAddAsOverride(armorGetter).FormKey;
                 }
 
@@ -226,35 +224,9 @@ namespace HalgarisRPGLoot.Analyzers
                     : RarityClasses[rarity].Label + " " + itemName;
 
                 Console.WriteLine("Generated " + newArmor.Name);
-                PrintProgressBar();
+
                 return newArmor.FormKey;
             }
-        }
-
-        private int _processedItems = 0;
-        private int _totalItems = 0;
-
-        public void SetTotalItems(int totalItems)
-        {
-            _totalItems = totalItems;
-            _processedItems = 0;  // Reset processed items
-        }
-
-        private void PrintProgressBar()
-        {
-            _processedItems++;
-
-            if (_totalItems <= 0)
-            {
-                Console.WriteLine("Progress: [--------------------------------------------------] 0/0");
-                return;
-            }
-
-            int progress = (int)((double)_processedItems / _totalItems * 50); // Length of the bar
-            progress = Math.Clamp(progress, 0, 50);
-
-            string bar = new string('#', progress) + new string('-', 50 - progress);
-            Console.WriteLine($"Progress: [{bar}] {_processedItems}/{_totalItems}");
         }
 
         // ReSharper disable once UnusedMember.Local

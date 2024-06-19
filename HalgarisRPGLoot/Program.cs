@@ -52,7 +52,6 @@ namespace HalgarisRPGLoot
             th2.Join();
             
             Console.WriteLine("Generating armor enchantments");
-            armor.SetTotalItems(armor.BaseItems.Count);
             armor.Generate();
             
             Console.WriteLine("Generating weapon enchantments");
