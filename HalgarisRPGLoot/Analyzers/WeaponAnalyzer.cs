@@ -57,7 +57,7 @@ namespace HalgarisRPGLoot.Analyzers
         {
             AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
-            var AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
+            AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
                                                              {
                                                                  if (entry.Data?.Reference.FormKey == default)
                                                                      return default;
@@ -82,11 +82,7 @@ namespace HalgarisRPGLoot.Analyzers
                         return !Extensions.CheckKeywords(kws);
                 })
                 .ToHashSet();
-            var pluginWeaponitem = new HashSet<IWeaponGetter>();
-            foreach (var WeaponGetter in AllListItems.SelectMany(objectEffectGroup => objectEffectGroup).ToHashSet())
-            {
-                pluginObjectEffects.Add(objectEffectGetter);
-            }
+
             AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull).ToHashSet();
 
             AllEnchantedItems = AllListItems.Where(e => !e.Resolved.ObjectEffect.IsNull).ToHashSet();
