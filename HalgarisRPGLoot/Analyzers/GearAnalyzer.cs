@@ -93,30 +93,26 @@ namespace HalgarisRPGLoot.Analyzers
 
             private void UpdateProgressBar()
             {
-                const int progressBarWidth = 50;
-                int initialTop = Console.CursorTop;
                 while (_currentItem < _totalItems)
                 {
                     lock (_lock)
                     {
                         double progress = (double)_currentItem / _totalItems;
-                        int progressBarProgress = (int)(progress * progressBarWidth);
-                        string progressBar = "[" + new string('#', progressBarProgress) + new string('-', progressBarWidth - progressBarProgress) + "]";
-                        Console.SetCursorPosition(0, initialTop);
-                        Console.Write($"Generating: {_currentItem}/{_totalItems} {progressBar} {progress:P}");
+                        int progressBarProgress = (int)(progress * _progressBarLength);
+                        string progressBar = "[" + new string('#', progressBarProgress) + new string('-', _progressBarLength - progressBarProgress) + "]";
+                        Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                        Console.WriteLine($"Generating: {_currentItem}/{_totalItems} {progressBar} {progress:P}");
                     }
 
                     Thread.Sleep(100); // Adjust sleep time if needed
                 }
 
                 // Clear progress bar after completion
-                lock (_lock)
-                {
-                    Console.SetCursorPosition(0, initialTop);
-                    Console.Write(new string(' ', progressBarWidth + 30)); // Clear the progress bar and additional text
-                }
+                Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                Console.Write(new string(' ', Console.WindowWidth));
             }
         }
+
         public void Analyze()
         {
             AnalyzeGear();
@@ -214,9 +210,9 @@ namespace HalgarisRPGLoot.Analyzers
                     var oldEntryChanceAdjustmentCopy = ench.Entry.DeepCopy();
                     topLevelList.Entries.Add(oldEntryChanceAdjustmentCopy);
                 }
-                progressBarManager.UpdateProgress();
-            }
+            progressBarManager.UpdateProgress();
         }
+    }
 
         protected abstract FormKey EnchantItem(ResolvedListItem<TType> item, int rarity);
 
