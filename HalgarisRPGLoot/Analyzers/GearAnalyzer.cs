@@ -8,7 +8,7 @@ using Mutagen.Bethesda.Plugins.Records;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
 using Noggog;
-using System.Threading;
+
 // ReSharper disable UnusedAutoPropertyAccessor.Local
 
 namespace HalgarisRPGLoot.Analyzers
@@ -63,55 +63,7 @@ namespace HalgarisRPGLoot.Analyzers
         protected string EditorIdPrefix;
 
         protected string ItemTypeDescriptor;
-        public class ProgressBarManager
-        {
-            private readonly int _totalItems;
-            private readonly int _progressBarLength = 50;
-            private readonly object _lock = new object();
-            private int _currentItem;
 
-            public ProgressBarManager(int totalItems)
-            {
-                _totalItems = totalItems;
-                _currentItem = 0;
-            }
-
-            public void Start()
-            {
-                Thread thread = new Thread(UpdateProgressBar);
-                thread.IsBackground = true;
-                thread.Start();
-            }
-
-            public void UpdateProgress()
-            {
-                lock (_lock)
-                {
-                    _currentItem++;
-                }
-            }
-
-            private void UpdateProgressBar()
-            {
-                while (_currentItem < _totalItems)
-                {
-                    lock (_lock)
-                    {
-                        double progress = (double)_currentItem / _totalItems;
-                        int progressBarProgress = (int)(progress * _progressBarLength);
-                        string progressBar = "[" + new string('#', progressBarProgress) + new string('-', _progressBarLength - progressBarProgress) + "]";
-                        Console.SetCursorPosition(0, Console.WindowHeight - 1);
-                        Console.WriteLine($"Generating: {_currentItem}/{_totalItems} {progressBar} {progress:P}");
-                    }
-
-                    Thread.Sleep(100); // Adjust sleep time if needed
-                }
-
-                // Clear progress bar after completion
-                Console.SetCursorPosition(0, Console.WindowHeight - 1);
-                Console.Write(new string(' ', Console.WindowWidth));
-            }
-        }
 
         public void Analyze()
         {
@@ -129,10 +81,18 @@ namespace HalgarisRPGLoot.Analyzers
                 _ => BaseItems
             };
 
-            ProgressBarManager progressBarManager = new ProgressBarManager(BaseItems.Count);
-            progressBarManager.Start();
+            int totalItems = BaseItems.Count;
+            int currentItem = 0;
+            const int ProgressBarLength = 50;
             foreach (var ench in BaseItems)
             {
+                // Update progress bar at the bottom of the console window
+                Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                double progress = (double)currentItem / totalItems;
+                int progressBarProgress = (int)(progress * ProgressBarLength);
+                string progressBar = "[" + new string('#', progressBarProgress) + new string('-', ProgressBarLength - progressBarProgress) + "]";
+                Console.WriteLine($"Generating: {currentItem}/{totalItems} {progressBar} {progress:P}");
+
                 var entries = State.PatchMod.LeveledItems
                     .GetOrAddAsOverride(ench.List).Entries?.Where(entry =>
                     entry.Data?.Reference.FormKey == ench.Resolved.FormKey);
@@ -210,9 +170,13 @@ namespace HalgarisRPGLoot.Analyzers
                     var oldEntryChanceAdjustmentCopy = ench.Entry.DeepCopy();
                     topLevelList.Entries.Add(oldEntryChanceAdjustmentCopy);
                 }
-            progressBarManager.UpdateProgress();
+                currentItem++;
+            }
+
+            // Clear progress bar after completion
+            Console.SetCursorPosition(0, Console.WindowHeight - 1);
+            Console.Write(new string(' ', Console.WindowWidth));
         }
-    }
 
         protected abstract FormKey EnchantItem(ResolvedListItem<TType> item, int rarity);
 
