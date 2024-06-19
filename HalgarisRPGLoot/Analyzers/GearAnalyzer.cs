@@ -74,6 +74,12 @@ namespace HalgarisRPGLoot.Analyzers
 
         public void Generate()
         {
+            if (BaseItems == null)
+            {
+                Console.WriteLine("BaseItems collection is not initialized.");
+                return;
+            }
+
             int currentItemCount = 0;
             int totalItemCount = BaseItems.Count;
             Console.WriteLine("Generating items...");
@@ -82,6 +88,11 @@ namespace HalgarisRPGLoot.Analyzers
 
             foreach (var ench in BaseItems)
             {
+                if (ench == null)
+                {
+                    Console.WriteLine("An item in BaseItems collection is null.");
+                    continue;
+                }
                 var entries = State.PatchMod.LeveledItems
                     .GetOrAddAsOverride(ench.List).Entries?.Where(entry =>
                     entry.Data?.Reference.FormKey == ench.Resolved.FormKey);
