@@ -55,6 +55,7 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override void AnalyzeGear()
         {
+            var blacklistedPlugins = Program.Settings.EnchantmentSettings.PluginList; // Use PluginList from EnchantmentSettings
             AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
             AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
@@ -68,6 +69,11 @@ namespace HalgarisRPGLoot.Analyzers
                                                                      return default;
                                                                  if (resolved.MajorFlags.HasFlag(Weapon.MajorFlag
                                                                          .NonPlayable)) return default;
+                                                                // Check if the item's plugin is blacklisted
+                                                                var pluginKey = entry.Data.Reference.FormKey.ModKey;
+                                                                if (blacklistedPlugins.Contains(pluginKey))
+                                                                    return default;
+
                                                                  return new ResolvedListItem<IWeaponGetter>
                                                                  {
                                                                      List = lst,
