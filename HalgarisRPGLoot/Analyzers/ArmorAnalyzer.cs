@@ -81,7 +81,7 @@ namespace HalgarisRPGLoot.Analyzers
                 var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
                 if (Extensions.CheckKeywords(kws)) return false;
 
-                switch (_settings.ListMode)
+                switch (_settings.EnchantmentListMode)
                 {
                     case ListMode.Blacklist:
                         switch (_settings.PluginListMode)
