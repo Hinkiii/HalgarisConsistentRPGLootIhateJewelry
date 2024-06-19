@@ -85,9 +85,12 @@ namespace HalgarisRPGLoot.Analyzers
             int currentItem = 0;
             foreach (var ench in BaseItems)
             {
-                // Update progress bar
-                Console.SetCursorPosition(0, Console.WindowHeight - 1);
-                Console.Write($"Generating: {currentItem}/{totalItems} [{(int)(((double)currentItem / totalItems) * 100)}%]");
+                // Update progress bar if console output is not redirected
+                if (!Console.IsOutputRedirected)
+                {
+                    Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                    Console.Write($"Generating: {currentItem}/{totalItems} [{(int)(((double)currentItem / totalItems) * 100)}%]");
+                }
                 var entries = State.PatchMod.LeveledItems
                     .GetOrAddAsOverride(ench.List).Entries?.Where(entry =>
                     entry.Data?.Reference.FormKey == ench.Resolved.FormKey);
@@ -169,8 +172,11 @@ namespace HalgarisRPGLoot.Analyzers
             }
 
             // Clear progress bar after completion
-            Console.SetCursorPosition(0, Console.WindowHeight - 1);
-            Console.Write(new string(' ', Console.WindowWidth));
+            if (!Console.IsOutputRedirected)
+            {
+                Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                Console.Write(new string(' ', Console.WindowWidth));
+            }
         }
 
         protected abstract FormKey EnchantItem(ResolvedListItem<TType> item, int rarity);
