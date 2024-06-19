@@ -15,7 +15,7 @@ namespace HalgarisRPGLoot.Analyzers
 {
     public class ArmorAnalyzer : GearAnalyzer<IArmorGetter>
     {
-
+        private readonly EnchantmentSettings _settings = Program.Settings.EnchantmentSettings;
         private readonly ObjectEffectsAnalyzer _objectEffectsAnalyzer;
 
         public ArmorAnalyzer(IPatcherState<ISkyrimMod, ISkyrimModGetter> state,
