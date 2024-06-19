@@ -74,12 +74,11 @@ namespace HalgarisRPGLoot.Analyzers
 
         public void Generate()
         {
-            BaseItems = RarityAndVariationDistributionSettings.LeveledListBase switch
-            {
-                LeveledListBase.AllValidEnchantedItems => AllEnchantedItems,
-                LeveledListBase.AllValidUnenchantedItems => AllUnenchantedItems,
-                _ => BaseItems
-            };
+            int currentItemCount = 0;
+            int totalItemCount = BaseItems.Count;
+            Console.WriteLine("Generating items...");
+            Console.CursorVisible = false; // Hide the cursor
+            Console.Write("["); // Start of progress bar
 
             foreach (var ench in BaseItems)
             {
@@ -160,7 +159,21 @@ namespace HalgarisRPGLoot.Analyzers
                     var oldEntryChanceAdjustmentCopy = ench.Entry.DeepCopy();
                     topLevelList.Entries.Add(oldEntryChanceAdjustmentCopy);
                 }
+                currentItemCount++;
+
+                // Calculate progress
+                int progress = (int)((double)currentItemCount / totalItemCount * 50); // 50 is the width of the progress bar
+
+                // Update progress bar
+                Console.CursorLeft = 1; // Move cursor to the right of the progress bar start
+                Console.Write(new string('#', progress)); // Draw progress
+                Console.Write(new string(' ', 50 - progress)); // Draw remaining empty spaces
+                Console.Write("]"); // End of progress bar
+                Console.Write($" {currentItemCount}/{totalItemCount}"); // Display current progress
             }
+
+            Console.CursorVisible = true; // Show the cursor again
+            Console.WriteLine("\nGeneration complete!");
         }
 
         protected abstract FormKey EnchantItem(ResolvedListItem<TType> item, int rarity);
