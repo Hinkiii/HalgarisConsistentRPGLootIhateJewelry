@@ -93,45 +93,26 @@ namespace HalgarisRPGLoot.Analyzers
 
             private void UpdateProgressBar()
             {
+                int initialTop = Console.CursorTop;
                 while (_currentItem < _totalItems)
                 {
                     lock (_lock)
                     {
-                        if (!Console.IsOutputRedirected)
-                        {
-                            // Calculate the position of the progress bar
-                            int progressBarTop = Console.CursorTop - 1;
-                            if (progressBarTop < 0)
-                            {
-                                progressBarTop = 0;
-                            }
-                            int progressBarLeft = Console.CursorLeft;
-
-                            double progress = (double)_currentItem / _totalItems;
-                            int progressBarProgress = (int)(progress * _progressBarLength);
-                            string progressBar = "[" + new string('#', progressBarProgress) + new string('-', _progressBarLength - progressBarProgress) + "]";
-
-                            // Move the cursor to the position of the progress bar and write the progress
-                            Console.SetCursorPosition(progressBarLeft, progressBarTop);
-                            Console.WriteLine($"Generating: {_currentItem}/{_totalItems} {progressBar} {progress:P}");
-                        }
+                        Console.SetCursorPosition(0, initialTop);
+                        double progress = (double)_currentItem / _totalItems;
+                        int progressBarProgress = (int)(progress * _progressBarLength);
+                        string progressBar = "[" + new string('#', progressBarProgress) + new string('-', _progressBarLength - progressBarProgress) + "]";
+                        Console.WriteLine($"Generating: {_currentItem}/{_totalItems} {progressBar} {progress:P}");
                     }
 
                     Thread.Sleep(100); // Adjust sleep time if needed
                 }
 
                 // Clear progress bar after completion
-                if (!Console.IsOutputRedirected)
+                lock (_lock)
                 {
-                    int progressBarTop = Console.CursorTop - 1;
-                    if (progressBarTop < 0)
-                    {
-                        progressBarTop = 0;
-                    }
-                    int progressBarLeft = Console.CursorLeft;
-
-                    Console.SetCursorPosition(progressBarLeft, progressBarTop);
-                    Console.Write(new string(' ', _progressBarLength + 50)); // Clear enough space for the progress bar and additional text
+                    Console.SetCursorPosition(0, initialTop);
+                    Console.Write(new string(' ', Console.WindowWidth));
                 }
             }
         }
