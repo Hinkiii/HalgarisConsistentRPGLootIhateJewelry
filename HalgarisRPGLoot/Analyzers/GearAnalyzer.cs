@@ -91,32 +91,32 @@ namespace HalgarisRPGLoot.Analyzers
                 }
             }
 
-        private void UpdateProgressBar()
-        {
-            const int progressBarWidth = 50;
-            int initialTop = Console.CursorTop;
-            while (_currentItem < _totalItems)
+            private void UpdateProgressBar()
             {
-                lock (_lock)
+                const int progressBarWidth = 50;
+                int initialTop = Console.CursorTop;
+                while (_currentItem < _totalItems)
                 {
-                    double progress = (double)_currentItem / _totalItems;
-                    int progressBarProgress = (int)(progress * progressBarWidth);
-                    string progressBar = "[" + new string('#', progressBarProgress) + new string('-', progressBarWidth - progressBarProgress) + "]";
-                    Console.SetCursorPosition(0, initialTop);
-                    Console.Write($"Generating: {_currentItem}/{_totalItems} {progressBar} {progress:P}");
+                    lock (_lock)
+                    {
+                        double progress = (double)_currentItem / _totalItems;
+                        int progressBarProgress = (int)(progress * progressBarWidth);
+                        string progressBar = "[" + new string('#', progressBarProgress) + new string('-', progressBarWidth - progressBarProgress) + "]";
+                        Console.SetCursorPosition(0, initialTop);
+                        Console.Write($"Generating: {_currentItem}/{_totalItems} {progressBar} {progress:P}");
+                    }
+
+                    Thread.Sleep(100); // Adjust sleep time if needed
                 }
 
-                Thread.Sleep(100); // Adjust sleep time if needed
-            }
-
-            // Clear progress bar after completion
-            lock (_lock)
-            {
-                Console.SetCursorPosition(0, initialTop);
-                Console.Write(new string(' ', progressBarWidth + 30)); // Clear the progress bar and additional text
+                // Clear progress bar after completion
+                lock (_lock)
+                {
+                    Console.SetCursorPosition(0, initialTop);
+                    Console.Write(new string(' ', progressBarWidth + 30)); // Clear the progress bar and additional text
+                }
             }
         }
-
         public void Analyze()
         {
             AnalyzeGear();
