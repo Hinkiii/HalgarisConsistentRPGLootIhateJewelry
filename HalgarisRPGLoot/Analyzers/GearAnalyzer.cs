@@ -74,25 +74,20 @@ namespace HalgarisRPGLoot.Analyzers
 
         public void Generate()
         {
-            if (BaseItems == null)
+            BaseItems = RarityAndVariationDistributionSettings.LeveledListBase switch
             {
-                Console.WriteLine("BaseItems collection is not initialized.");
-                return;
-            }
+                LeveledListBase.AllValidEnchantedItems => AllEnchantedItems,
+                LeveledListBase.AllValidUnenchantedItems => AllUnenchantedItems,
+                _ => BaseItems
+            };
 
-            int currentItemCount = 0;
-            int totalItemCount = BaseItems.Count;
-            Console.WriteLine("Generating items...");
-            Console.CursorVisible = false; // Hide the cursor
-            Console.Write("["); // Start of progress bar
-
+            int totalItems = BaseItems.Count;
+            int currentItem = 0;
             foreach (var ench in BaseItems)
             {
-                if (ench == null)
-                {
-                    Console.WriteLine("An item in BaseItems collection is null.");
-                    continue;
-                }
+                // Update progress bar
+                Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                Console.Write($"Generating: {currentItem}/{totalItems} [{(int)(((double)currentItem / totalItems) * 100)}%]");
                 var entries = State.PatchMod.LeveledItems
                     .GetOrAddAsOverride(ench.List).Entries?.Where(entry =>
                     entry.Data?.Reference.FormKey == ench.Resolved.FormKey);
@@ -170,21 +165,12 @@ namespace HalgarisRPGLoot.Analyzers
                     var oldEntryChanceAdjustmentCopy = ench.Entry.DeepCopy();
                     topLevelList.Entries.Add(oldEntryChanceAdjustmentCopy);
                 }
-                currentItemCount++;
-
-                // Calculate progress
-                int progress = (int)((double)currentItemCount / totalItemCount * 50); // 50 is the width of the progress bar
-
-                // Update progress bar
-                Console.CursorLeft = 1; // Move cursor to the right of the progress bar start
-                Console.Write(new string('#', progress)); // Draw progress
-                Console.Write(new string(' ', 50 - progress)); // Draw remaining empty spaces
-                Console.Write("]"); // End of progress bar
-                Console.Write($" {currentItemCount}/{totalItemCount}"); // Display current progress
+                currentItem++;
             }
 
-            Console.CursorVisible = true; // Show the cursor again
-            Console.WriteLine("\nGeneration complete!");
+            // Clear progress bar after completion
+            Console.SetCursorPosition(0, Console.WindowHeight - 1);
+            Console.Write(new string(' ', Console.WindowWidth));
         }
 
         protected abstract FormKey EnchantItem(ResolvedListItem<TType> item, int rarity);
