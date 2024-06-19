@@ -237,12 +237,22 @@ namespace HalgarisRPGLoot.Analyzers
         public void SetTotalItems(int totalItems)
         {
             _totalItems = totalItems;
+            _processedItems = 0;  // Reset processed items
         }
 
         private void PrintProgressBar()
         {
             _processedItems++;
+
+            if (_totalItems <= 0)
+            {
+                Console.WriteLine("Progress: [--------------------------------------------------] 0/0");
+                return;
+            }
+
             int progress = (int)((double)_processedItems / _totalItems * 50); // Length of the bar
+            progress = Math.Clamp(progress, 0, 50);
+
             string bar = new string('#', progress) + new string('-', 50 - progress);
             Console.WriteLine($"Progress: [{bar}] {_processedItems}/{_totalItems}");
         }
