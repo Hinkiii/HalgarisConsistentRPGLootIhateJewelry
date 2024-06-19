@@ -38,7 +38,7 @@ namespace HalgarisRPGLoot.Analyzers
         protected HashSet<ResolvedListItem<TType>> AllEnchantedItems { get; set; }
         protected HashSet<ResolvedListItem<TType>> AllUnenchantedItems { get; set; }
 
-        private HashSet<ResolvedListItem<TType>> BaseItems { get; set; }
+        protected HashSet<ResolvedListItem<TType>> BaseItems { get; set; }
 
         protected Dictionary<FormKey, IObjectEffectGetter> AllObjectEffects { get; set; }
 
