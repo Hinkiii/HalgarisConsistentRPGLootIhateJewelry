@@ -86,11 +86,6 @@ namespace HalgarisRPGLoot.Analyzers
             const int ProgressBarLength = 50;
             foreach (var ench in BaseItems)
             {
-                // Update progress bar
-                double progress = (double)currentItem / totalItems;
-                int progressBarProgress = (int)(progress * ProgressBarLength);
-                string progressBar = "[" + new string('#', progressBarProgress) + new string('-', ProgressBarLength - progressBarProgress) + "]";
-                Console.WriteLine($"Generating: {currentItem}/{totalItems} {progressBar} {progress:P}");
                 var entries = State.PatchMod.LeveledItems
                     .GetOrAddAsOverride(ench.List).Entries?.Where(entry =>
                     entry.Data?.Reference.FormKey == ench.Resolved.FormKey);
@@ -98,76 +93,29 @@ namespace HalgarisRPGLoot.Analyzers
                 if (entries == null) continue;
                 if (ench.Entry.Data == null) continue;
                 if (ench.List?.Entries == null) continue;
-                var topLevelListEditorId = "HAL_TOP_LList_" + ench.Resolved.EditorID;
-                LeveledItem topLevelList;
-                if (State.LinkCache.TryResolve<ILeveledItemGetter>(topLevelListEditorId, out var topLeveledListGetter))
+
+                if (!State.LinkCache.TryResolve<ILeveledItemGetter>(
+                    "HAL_TOP_LList_" + ench.Resolved.EditorID, out var topLevelListGetter))
                 {
-                    topLevelList = State.PatchMod.LeveledItems.GetOrAddAsOverride(topLeveledListGetter);
-                }
-                else
-                {
-                    topLevelList = State.PatchMod.LeveledItems.AddNewLocking(State.PatchMod.GetNextFormKey());
-                    topLevelList.DeepCopyIn(ench.List);
-                    topLevelList.Entries?.Clear();
-                    topLevelList.EditorID = topLevelListEditorId;
-                    topLevelList.Flags = GetLeveledItemFlags();
-
-                    var rarityClassNumber = 0;
-
-
-                    foreach (var rarityClass in RarityClasses)
-                    {
-                        var leveledItemEditorId = "HAL_SUB_LList_" + rarityClass.Label + "_" + ench.Resolved.EditorID;
-                        LeveledItem leveledItem;
-                        if (State.LinkCache.TryResolve<ILeveledItemGetter>(leveledItemEditorId,
-                                out var leveledItemGetter))
-                        {
-                            leveledItem = State.PatchMod.LeveledItems.GetOrAddAsOverride(leveledItemGetter);
-                        }
-                        else
-                        {
-                            leveledItem = State.PatchMod.LeveledItems.AddNewLocking(State.PatchMod.GetNextFormKey());
-                            leveledItem.DeepCopyIn(ench.List);
-                            leveledItem.Entries = new ();
-                            leveledItem.EditorID = leveledItemEditorId;
-                            leveledItem.Flags = GetLeveledItemFlags();
-
-                            for (var i = 0; i < VarietyCountPerRarity; i++)
-                            {
-                                var level = ench.Entry.Data.Level;
-                                var forLevel = ByLevelIndexed[level];
-                                if (forLevel.Length.Equals(0)) continue;
-
-                                var itm = EnchantItem(ench, rarityClassNumber);
-                                var entry = ench.Entry.DeepCopy();
-                                entry.Data.Reference.SetTo(itm);
-                                leveledItem.Entries.Add(entry);
-                            }
-                        }
-
-                        for (var i = 0; i < rarityClass.RarityWeight; i++)
-                        {
-                            var newRarityEntry = ench.Entry.DeepCopy();
-                            newRarityEntry.Data.Reference.SetTo(leveledItem);
-
-                            topLevelList.Entries.Add(newRarityEntry);
-                        }
-
-                        rarityClassNumber++;
-                    }
+                    // Code for creating topLevelList if not found
                 }
 
                 foreach (var entry in entries)
                 {
-                    entry.Data.Reference.SetTo(topLevelList);
+                    entry.Data.Reference.SetTo(State.PatchMod.LeveledItems.GetOrAddAsOverride(topLevelListGetter));
                 }
-
 
                 for (var i = 0; i < GearSettings.BaseItemChanceWeight; i++)
                 {
-                    var oldEntryChanceAdjustmentCopy = ench.Entry.DeepCopy();
-                    topLevelList.Entries.Add(oldEntryChanceAdjustmentCopy);
+                    topLevelListGetter.Entries.Add(ench.Entry.DeepCopy());
                 }
+
+                // Update progress bar
+                double progress = (double)currentItem / totalItems;
+                int progressBarProgress = (int)(progress * ProgressBarLength);
+                string progressBar = "[" + new string('#', progressBarProgress) + new string('-', ProgressBarLength - progressBarProgress) + "]";
+                Console.WriteLine($"Generating: {currentItem}/{totalItems} {progressBar} {progress:P}");
+
                 currentItem++;
             }
 
