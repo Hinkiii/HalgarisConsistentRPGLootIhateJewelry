@@ -15,7 +15,7 @@ namespace HalgarisRPGLoot.Analyzers
 {
     public class WeaponAnalyzer : GearAnalyzer<IWeaponGetter>
     {
-        private readonly EnchantmentSettings _settings = Program.Settings.EnchantmentSettings;
+
         private readonly ObjectEffectsAnalyzer _objectEffectsAnalyzer;
 
         public WeaponAnalyzer(IPatcherState<ISkyrimMod, ISkyrimModGetter> state,
@@ -57,7 +57,7 @@ namespace HalgarisRPGLoot.Analyzers
         {
             AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
-            AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
+            var AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
                                                              {
                                                                  if (entry.Data?.Reference.FormKey == default)
                                                                      return default;
@@ -74,45 +74,19 @@ namespace HalgarisRPGLoot.Analyzers
                                                                      Entry = entry,
                                                                      Resolved = resolved
                                                                  };
-            }).Where(resolvedListItem => resolvedListItem != default)
-            ?? Array.Empty<ResolvedListItem<IWeaponGetter>>())
-            .Where(e =>
-            {
-                var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
-                if (Extensions.CheckKeywords(kws)) return false;
-
-                switch (_settings.EnchantmentListMode)
+                                                             }).Where(resolvedListItem => resolvedListItem != default)
+                                                             ?? Array.Empty<ResolvedListItem<IWeaponGetter>>())
+                .Where(e =>
                 {
-                    case ListMode.Blacklist:
-                        switch (_settings.PluginListMode)
-                        {
-                            case ListMode.Blacklist:
-                                return !_settings.ItemList.Contains(e.Resolved) &&
-                                    !pluginItems.Contains(e.Resolved);
-                            case ListMode.Whitelist:
-                                return !_settings.ItemList.Contains(e.Resolved) &&
-                                    pluginItems.Contains(e.Resolved);
-                            default:
-                                throw new();
-                        }
-                    case ListMode.Whitelist:
-                        switch (_settings.PluginListMode)
-                        {
-                            case ListMode.Blacklist:
-                                return _settings.ItemList.Contains(e.Resolved) ||
-                                    !pluginItems.Contains(e.Resolved);
-                            case ListMode.Whitelist:
-                                return _settings.ItemList.Contains(e.Resolved) ||
-                                    pluginItems.Contains(e.Resolved);
-                            default:
-                                throw new();
-                        }
-                    default:
-                        throw new();
-                }
-            })
-            .ToHashSet();
-
+                    var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
+                        return !Extensions.CheckKeywords(kws);
+                })
+                .ToHashSet();
+            var pluginWeaponitem = new HashSet<IWeaponGetter>();
+            foreach (var WeaponGetter in AllListItems.SelectMany(objectEffectGroup => objectEffectGroup).ToHashSet())
+            {
+                pluginObjectEffects.Add(objectEffectGetter);
+            }
             AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull).ToHashSet();
 
             AllEnchantedItems = AllListItems.Where(e => !e.Resolved.ObjectEffect.IsNull).ToHashSet();

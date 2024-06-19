@@ -15,11 +15,10 @@ namespace HalgarisRPGLoot.Analyzers
 {
     public class ArmorAnalyzer : GearAnalyzer<IArmorGetter>
     {
-        private readonly EnchantmentSettings _settings = Program.Settings.EnchantmentSettings;
         private readonly ObjectEffectsAnalyzer _objectEffectsAnalyzer;
+        private HashSet<ModKey> _blacklistedPlugins;
 
-        public ArmorAnalyzer(IPatcherState<ISkyrimMod, ISkyrimModGetter> state,
-            ObjectEffectsAnalyzer objectEffectsAnalyzer)
+        public ArmorAnalyzer(IPatcherState<ISkyrimMod, ISkyrimModGetter> state, ObjectEffectsAnalyzer objectEffectsAnalyzer)
         {
             RarityAndVariationDistributionSettings = Program.Settings.RarityAndVariationDistributionSettings;
             GearSettings = RarityAndVariationDistributionSettings.ArmorSettings;
@@ -32,7 +31,6 @@ namespace HalgarisRPGLoot.Analyzers
 
             VarietyCountPerRarity = GearSettings.VarietyCountPerItem;
             RarityClasses = GearSettings.RarityClasses;
-
 
             AllRpgEnchants = new SortedList<string, ResolvedEnchantment[]>[RarityClasses.Count];
             for (var i = 0; i < AllRpgEnchants.Length; i++)
@@ -51,6 +49,20 @@ namespace HalgarisRPGLoot.Analyzers
             {
                 ChosenRpgEnchantEffects[i] = new();
             }
+
+            LoadBlacklistedPlugins();
+        }
+
+        private void LoadBlacklistedPlugins()
+        {
+            var settings = Program.Settings.EnchantmentSettings;
+            var pluginObjectEffectGroups = State.LoadOrder.ListedOrder.Select(listing => listing.Mod).NotNull()
+                .Select(x => (x.ModKey, x.ObjectEffects)).AsParallel()
+                .Where(x => x.ObjectEffects.Count > 0 && settings.PluginList.Contains(x.ModKey))
+                .Select(x => x.ModKey).Distinct()
+                .ToHashSet();
+
+            _blacklistedPlugins = new HashSet<ModKey>(pluginObjectEffectGroups);
         }
 
         protected override void AnalyzeGear()
@@ -58,60 +70,35 @@ namespace HalgarisRPGLoot.Analyzers
             AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
             AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
-            {
-                if (entry.Data?.Reference.FormKey == default)
-                    return default;
-                if (entry.Data == null) return default;
-                if (!State.LinkCache.TryResolve<IArmorGetter>(
-                        entry.Data.Reference.FormKey,
-                        out var resolved))
-                    return default;
-                if (resolved.MajorFlags.HasFlag(Armor.MajorFlag
-                        .NonPlayable)) return default;
-                return new ResolvedListItem<IArmorGetter>
-                {
-                    List = lst,
-                    Entry = entry,
-                    Resolved = resolved
-                };
-            }).Where(resolvedListItem => resolvedListItem != default)
-            ?? Array.Empty<ResolvedListItem<IArmorGetter>>())
-            .Where(e =>
-            {
-                var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
-                if (Extensions.CheckKeywords(kws)) return false;
+                                                             {
+                                                                 if (entry.Data?.Reference.FormKey == default)
+                                                                     return default;
+                                                                 if (entry.Data == null) return default;
+                                                                 if (!State.LinkCache.TryResolve<IArmorGetter>(
+                                                                         entry.Data.Reference.FormKey,
+                                                                         out var resolved))
+                                                                     return default;
+                                                                 if (resolved.MajorFlags.HasFlag(Armor.MajorFlag
+                                                                         .NonPlayable)) return default;
 
-                switch (_settings.EnchantmentListMode)
+                                                                 var modKey = entry.Data.Reference.FormKey.ModKey;
+                                                                 if (_blacklistedPlugins.Contains(modKey))
+                                                                     return default;
+
+                                                                 return new ResolvedListItem<IArmorGetter>
+                                                                 {
+                                                                     List = lst,
+                                                                     Entry = entry,
+                                                                     Resolved = resolved
+                                                                 };
+                                                             }).Where(resolvedListItem => resolvedListItem != default)
+                                                             ?? Array.Empty<ResolvedListItem<IArmorGetter>>())
+                .Where(e =>
                 {
-                    case ListMode.Blacklist:
-                        switch (_settings.PluginListMode)
-                        {
-                            case ListMode.Blacklist:
-                                return !_settings.ItemList.Contains(e.Resolved) &&
-                                    !pluginItems.Contains(e.Resolved);
-                            case ListMode.Whitelist:
-                                return !_settings.ItemList.Contains(e.Resolved) &&
-                                    pluginItems.Contains(e.Resolved);
-                            default:
-                                throw new();
-                        }
-                    case ListMode.Whitelist:
-                        switch (_settings.PluginListMode)
-                        {
-                            case ListMode.Blacklist:
-                                return _settings.ItemList.Contains(e.Resolved) ||
-                                    !pluginItems.Contains(e.Resolved);
-                            case ListMode.Whitelist:
-                                return _settings.ItemList.Contains(e.Resolved) ||
-                                    pluginItems.Contains(e.Resolved);
-                            default:
-                                throw new();
-                        }
-                    default:
-                        throw new();
-                }
-            })
-            .ToHashSet();
+                    var kws = (e.Resolved.Keywords ?? Array.Empty<IFormLink<IKeywordGetter>>());
+                    return !Extensions.CheckKeywords(kws);
+                })
+                .ToHashSet();
 
             AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull).ToHashSet();
 
@@ -249,7 +236,6 @@ namespace HalgarisRPGLoot.Analyzers
                     : RarityClasses[rarity].Label + " " + itemName;
 
                 Console.WriteLine("Generated " + newArmor.Name);
-
 
                 return newArmor.FormKey;
             }
