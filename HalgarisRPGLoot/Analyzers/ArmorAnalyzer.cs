@@ -16,9 +16,9 @@ namespace HalgarisRPGLoot.Analyzers
     public class ArmorAnalyzer : GearAnalyzer<IArmorGetter>
     {
         private readonly ObjectEffectsAnalyzer _objectEffectsAnalyzer;
-        private HashSet<ModKey> _blacklistedPlugins;
 
-        public ArmorAnalyzer(IPatcherState<ISkyrimMod, ISkyrimModGetter> state, ObjectEffectsAnalyzer objectEffectsAnalyzer)
+        public ArmorAnalyzer(IPatcherState<ISkyrimMod, ISkyrimModGetter> state,
+            ObjectEffectsAnalyzer objectEffectsAnalyzer)
         {
             RarityAndVariationDistributionSettings = Program.Settings.RarityAndVariationDistributionSettings;
             GearSettings = RarityAndVariationDistributionSettings.ArmorSettings;
@@ -49,24 +49,12 @@ namespace HalgarisRPGLoot.Analyzers
             {
                 ChosenRpgEnchantEffects[i] = new();
             }
-
-            LoadBlacklistedPlugins();
-        }
-
-        private void LoadBlacklistedPlugins()
-        {
-            var settings = Program.Settings.EnchantmentSettings;
-            var pluginObjectEffectGroups = State.LoadOrder.ListedOrder.Select(listing => listing.Mod).NotNull()
-                .Select(x => (x.ModKey, x.ObjectEffects)).AsParallel()
-                .Where(x => x.ObjectEffects.Count > 0 && settings.PluginList.Contains(x.ModKey))
-                .Select(x => x.ModKey).Distinct()
-                .ToHashSet();
-
-            _blacklistedPlugins = new HashSet<ModKey>(pluginObjectEffectGroups);
         }
 
         protected override void AnalyzeGear()
         {
+            var blacklistedPlugins = Program.Settings.BlacklistedPlugins; // Assume this is where the list of blacklisted plugins is stored
+
             AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
             AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
@@ -81,8 +69,9 @@ namespace HalgarisRPGLoot.Analyzers
                                                                  if (resolved.MajorFlags.HasFlag(Armor.MajorFlag
                                                                          .NonPlayable)) return default;
 
-                                                                 var modKey = entry.Data.Reference.FormKey.ModKey;
-                                                                 if (_blacklistedPlugins.Contains(modKey))
+                                                                 // Check if the item's plugin is blacklisted
+                                                                 var pluginKey = entry.Data.Reference.FormKey.ModKey;
+                                                                 if (blacklistedPlugins.Contains(pluginKey))
                                                                      return default;
 
                                                                  return new ResolvedListItem<IArmorGetter>
@@ -136,7 +125,6 @@ namespace HalgarisRPGLoot.Analyzers
             ByLevelIndexed = Enumerable.Range(0, maxLvl + 1)
                 .Select(lvl => (lvl, ByLevel.Where(bl => bl.Key <= lvl).SelectMany(e => e.Item2).ToArray()))
                 .ToDictionary(kv => kv.lvl, kv => kv.Item2);
-
 
             for (var coreEnchant = 0; coreEnchant < AllEnchantments.Length; coreEnchant++)
             {
