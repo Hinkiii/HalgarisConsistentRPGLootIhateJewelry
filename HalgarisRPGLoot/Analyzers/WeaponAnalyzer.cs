@@ -244,6 +244,12 @@ namespace HalgarisRPGLoot.Analyzers
                 int itemNumber = Interlocked.Increment(ref currentItem);
                 Console.WriteLine($"Generating item {itemNumber} of {totalItems}");
                 EnchantItem(item, rarity);
+
+                lock (Console.Out)
+                {
+                    Console.SetCursorPosition(0, Console.CursorTop);
+                    Console.Write($"Progress: {itemNumber} / {totalItems}");
+                }
             });
         }
 

@@ -235,19 +235,24 @@ namespace HalgarisRPGLoot.Analyzers
 
         private readonly object _lock = new object();
 
-    private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IArmorGetter>> items, int rarity)
-    {
-        int totalItems = items.Count();
-        int currentItem = 0;
-
-        Parallel.ForEach(items, item =>
+        private void ParallelEnchantItems(IEnumerable<ResolvedListItem<IArmorGetter>> items, int rarity)
         {
-            int itemNumber = Interlocked.Increment(ref currentItem);
-            Console.WriteLine($"Generating item {itemNumber} of {totalItems}");
+            int totalItems = items.Count();
+            int currentItem = 0;
 
-            EnchantItem(item, rarity);
-        });
-    }
+            Parallel.ForEach(items, item =>
+            {
+                int itemNumber = Interlocked.Increment(ref currentItem);
+                Console.WriteLine($"Generating item {itemNumber} of {totalItems}");
+                EnchantItem(item, rarity);
+
+                lock (Console.Out)
+                {
+                    Console.SetCursorPosition(0, Console.CursorTop);
+                    Console.Write($"Progress: {itemNumber} / {totalItems}");
+                }
+            });
+        }
 
 
         // ReSharper disable once UnusedMember.Local
