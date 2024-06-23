@@ -86,45 +86,91 @@ namespace HalgarisRPGLoot.Analyzers
             })
             .ToHashSet();
 
-            AllUnenchantedItems = AllListItems
-                .Where(e =>
-                {
-                    switch (Program.Settings.AllowedStringsSettings.AllowedStringsListMode)
+                AllUnenchantedItems = AllListItems
+                    .Where(e =>
                     {
-                        case ListMode.Blacklist:
-                            return blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
-                                !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
-                            
-                        case ListMode.Whitelist:
-                            return blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
-                                HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
-                            
-                        default:
-                            throw new InvalidOperationException("Invalid ListMode");
-                    }
-                })
-                .ToHashSet();
-                
-            AllEnchantedItems = AllListItems
-                .Where(e =>
-                {
-                    switch (Program.Settings.AllowedStringsSettings.AllowedStringsListMode)
+                        switch (Program.Settings.AllowedStringsSettings.AllowedStringsListMode)
+                        {
+                            case ListMode.Blacklist:
+                                switch (Program.Settings.PluginSettings.PluginListMode)
+                                {
+                                    case ListMode.Blacklist:
+                                        return !blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    case ListMode.Whitelist:
+                                        return blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    default:
+                                        throw new InvalidOperationException("Invalid Plugin ListMode");
+                                }
+
+                            case ListMode.Whitelist:
+                                switch (Program.Settings.PluginSettings.PluginListMode)
+                                {
+                                    case ListMode.Blacklist:
+                                        return !blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    case ListMode.Whitelist:
+                                        return blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    default:
+                                        throw new InvalidOperationException("Invalid Plugin ListMode");
+                                }
+
+                            default:
+                                throw new InvalidOperationException("Invalid ListMode");
+                        }
+                    })
+                    .ToHashSet();
+
+                AllEnchantedItems = AllListItems
+                    .Where(e =>
                     {
-                        case ListMode.Blacklist:
-                            return !e.Resolved.ObjectEffect.IsNull && 
-                                blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
-                                !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
-                            
-                        case ListMode.Whitelist:
-                            return !e.Resolved.ObjectEffect.IsNull && 
-                                blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
-                                HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
-                            
-                        default:
-                            throw new InvalidOperationException("Invalid ListMode");
-                    }
-                })
-                .ToHashSet();
+                        switch (Program.Settings.AllowedStringsSettings.AllowedStringsListMode)
+                        {
+                            case ListMode.Blacklist:
+                                switch (Program.Settings.PluginSettings.PluginListMode)
+                                {
+                                    case ListMode.Blacklist:
+                                        return !e.Resolved.ObjectEffect.IsNull && 
+                                            !blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    case ListMode.Whitelist:
+                                        return !e.Resolved.ObjectEffect.IsNull && 
+                                            blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    default:
+                                        throw new InvalidOperationException("Invalid Plugin ListMode");
+                                }
+
+                            case ListMode.Whitelist:
+                                switch (Program.Settings.PluginSettings.PluginListMode)
+                                {
+                                    case ListMode.Blacklist:
+                                        return !e.Resolved.ObjectEffect.IsNull && 
+                                            !blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    case ListMode.Whitelist:
+                                        return !e.Resolved.ObjectEffect.IsNull && 
+                                            blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                            HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+
+                                    default:
+                                        throw new InvalidOperationException("Invalid Plugin ListMode");
+                                }
+
+                            default:
+                                throw new InvalidOperationException("Invalid ListMode");
+                        }
+                    })
+                    .ToHashSet();
 
             AllObjectEffects = _objectEffectsAnalyzer.AllObjectEffects;
 
