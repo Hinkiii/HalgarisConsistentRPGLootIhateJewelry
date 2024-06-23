@@ -71,7 +71,7 @@ namespace HalgarisRPGLoot.Analyzers
 
                                                             // Check if the item's plugin is blacklisted
                                                             var pluginKey = entry.Data.Reference.FormKey.ModKey;
-                                                            if (blacklistedPlugins.Contains(pluginKey))
+                                                            if (!blacklistedPlugins.Contains(pluginKey))
                                                                 return default;
 
                                                             return new ResolvedListItem<IArmorGetter>
