@@ -18,7 +18,7 @@ namespace HalgarisRPGLoot
 
         [MaintainOrder] public EnchantmentSettings EnchantmentSettings = new();
         [MaintainOrder] public PluginSettings PluginSettings = new();
-
+        [MaintainOrder] public AllowedStringsSettings AllowedStringsSettings = new();
         [MaintainOrder] public RarityAndVariationDistributionSettings RarityAndVariationDistributionSettings = new();
     }
 
@@ -193,4 +193,24 @@ namespace HalgarisRPGLoot
         public HashSet<ModKey> PluginList = new();
     }
     
+    public class AllowedStringsSettings
+    {
+        [MaintainOrder]
+        [SynthesisSettingName("Allowed Strings List Mode")]
+        [SynthesisDescription(
+            "Blacklist: Selected Strings won't be allowed." +
+            "\nWhitelist: Only the selected Strings will be allowed.")]
+        [SynthesisTooltip(
+            "Blacklist: Selected Strings won't be allowed." +
+            "\nWhitelist: Only the selected Strings will be allowed.")]
+        public ListMode AllowedStringsListMode = ListMode.Blacklist;
+
+        [MaintainOrder] [SynthesisSettingName("Allowed Strings List")] [SynthesisDescription("List of Allowed Strings")]
+        public List<string> AllowedStringsList = new()
+        {
+            "example1",
+            "example2",
+            "example3"
+        };
+    }
 }
