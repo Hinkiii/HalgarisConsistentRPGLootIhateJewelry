@@ -17,6 +17,7 @@ namespace HalgarisRPGLoot
         [MaintainOrder] public GeneralSettings GeneralSettings = new();
 
         [MaintainOrder] public EnchantmentSettings EnchantmentSettings = new();
+        [MaintainOrder] public PluginSettings PluginSettings = new();
 
         [MaintainOrder] public RarityAndVariationDistributionSettings RarityAndVariationDistributionSettings = new();
     }
@@ -174,6 +175,22 @@ namespace HalgarisRPGLoot
         {
             return RarityWeight.CompareTo(other.RarityWeight) * -1;
         }
+    }
+
+    public class PluginSettings
+    {
+        [MaintainOrder]
+        [SynthesisSettingName("Plugin List Mode")]
+        [SynthesisDescription(
+            "Blacklist: Enchantments of selected Plugins wont be distributed." +
+            "\nWhitelist: Only the Enchantments of selected Plugins  get Distributed.")]
+        [SynthesisTooltip(
+            "Blacklist: Enchantments of selected Plugins wont be distributed." +
+            "\nWhitelist: Only the Enchantments of selected Plugins  get Distributed.")]
+        public ListMode PluginListMode = ListMode.Blacklist;
+
+        [MaintainOrder] [SynthesisSettingName("Plugin List")] [SynthesisDescription("List of Plugins")]
+        public HashSet<ModKey> PluginList = new();
     }
     
 }

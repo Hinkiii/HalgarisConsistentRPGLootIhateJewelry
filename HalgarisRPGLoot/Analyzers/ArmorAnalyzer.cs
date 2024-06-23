@@ -53,7 +53,7 @@ namespace HalgarisRPGLoot.Analyzers
 
         protected override void AnalyzeGear()
         {
-        var blacklistedPlugins = Program.Settings.EnchantmentSettings.PluginList; // Use PluginList from EnchantmentSettings
+        var blacklistedPlugins = Program.Settings.PluginSettings.PluginList; // Use PluginList from EnchantmentSettings
 
         AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
