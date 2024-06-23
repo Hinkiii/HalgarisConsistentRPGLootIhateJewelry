@@ -47,7 +47,7 @@ namespace HalgarisRPGLoot.Analyzers
                                 {
                                     case ListMode.Blacklist:
                                         return !_settings.EnchantmentList.Contains(x) &&
-                                               !pluginObjectEffects.Contains(x);
+                                               pluginObjectEffects.Contains(x);
                                     case ListMode.Whitelist:
                                         return !_settings.EnchantmentList.Contains(x) &&
                                                pluginObjectEffects.Contains(x);
