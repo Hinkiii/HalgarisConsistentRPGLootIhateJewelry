@@ -56,7 +56,7 @@ namespace HalgarisRPGLoot.Analyzers
         protected override void AnalyzeGear()
         {
             var blacklistedPlugins = Program.Settings.PluginSettings.PluginList; // Use PluginList from EnchantmentSettings
-
+            var disallowedStrings = Program.Settings.AllowedStringsSettings.AllowedStringsList;
             AllLeveledLists = State.LoadOrder.PriorityOrder.WinningOverrides<ILeveledItemGetter>().ToHashSet();
 
             AllListItems = AllLeveledLists.SelectMany(lst => lst.Entries?.Select(entry =>
@@ -86,9 +86,45 @@ namespace HalgarisRPGLoot.Analyzers
                 })
                 .ToHashSet();
 
-            AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull && blacklistedPlugins.Contains(e.List.FormKey.ModKey)).ToHashSet();
-
-            AllEnchantedItems = AllListItems.Where(e => !e.Resolved.ObjectEffect.IsNull && blacklistedPlugins.Contains(e.List.FormKey.ModKey)).ToHashSet();
+            AllUnenchantedItems = AllListItems
+                .Where(e =>
+                {
+                    switch (Program.Settings.AllowedStringsSettings.AllowedStringsListMode)
+                    {
+                        case ListMode.Blacklist:
+                            return blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+                            
+                        case ListMode.Whitelist:
+                            return blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+                            
+                        default:
+                            throw new InvalidOperationException("Invalid ListMode");
+                    }
+                })
+                .ToHashSet();
+                
+            AllEnchantedItems = AllListItems
+                .Where(e =>
+                {
+                    switch (Program.Settings.AllowedStringsSettings.AllowedStringsListMode)
+                    {
+                        case ListMode.Blacklist:
+                            return !e.Resolved.ObjectEffect.IsNull && 
+                                blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                !HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+                            
+                        case ListMode.Whitelist:
+                            return !e.Resolved.ObjectEffect.IsNull && 
+                                blacklistedPlugins.Contains(e.List.FormKey.ModKey) &&
+                                HasDisallowedKeyword(e.Resolved.Keywords, disallowedStrings);
+                            
+                        default:
+                            throw new InvalidOperationException("Invalid ListMode");
+                    }
+                })
+                .ToHashSet();
 
             AllObjectEffects = _objectEffectsAnalyzer.AllObjectEffects;
 
@@ -165,6 +201,21 @@ namespace HalgarisRPGLoot.Analyzers
                     }
                 }
             }
+        }
+
+        private bool HasDisallowedKeyword(IEnumerable<IFormLinkGetter<IKeywordGetter>>? keywords, List<string> disallowedStrings)
+        {
+            if (keywords == null)
+                return false;
+
+            foreach (var keyword in keywords)
+            {
+                if (keyword != null && disallowedStrings.Any(disallowed => keyword.FormKey.ToString().Contains(disallowed)))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         protected override FormKey EnchantItem(ResolvedListItem<IWeaponGetter> item, int rarity)
