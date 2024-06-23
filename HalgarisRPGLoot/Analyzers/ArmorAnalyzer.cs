@@ -70,9 +70,6 @@ namespace HalgarisRPGLoot.Analyzers
                                                                     .NonPlayable)) return default;
 
                                                             // Check if the item's plugin is blacklisted
-                                                            var pluginKey = entry.Data.Reference.FormKey.ModKey;
-                                                            if (!blacklistedPlugins.Contains(pluginKey))
-                                                                return default;
 
                                                             return new ResolvedListItem<IArmorGetter>
                                                             {
@@ -89,9 +86,9 @@ namespace HalgarisRPGLoot.Analyzers
             })
             .ToHashSet();
 
-            AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull).ToHashSet();
+            AllUnenchantedItems = AllListItems.Where(e => e.Resolved.ObjectEffect.IsNull && blacklistedPlugins.Contains(e.List.FormKey.ModKey)).ToHashSet();
 
-            AllEnchantedItems = AllListItems.Where(e => !e.Resolved.ObjectEffect.IsNull).ToHashSet();
+            AllEnchantedItems = AllListItems.Where(e => !e.Resolved.ObjectEffect.IsNull && blacklistedPlugins.Contains(e.List.FormKey.ModKey)).ToHashSet();
 
             AllObjectEffects = _objectEffectsAnalyzer.AllObjectEffects;
 
