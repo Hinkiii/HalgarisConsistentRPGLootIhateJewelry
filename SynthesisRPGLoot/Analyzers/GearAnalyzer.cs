@@ -350,10 +350,8 @@ namespace SynthesisRPGLoot.Analyzers
                 case GeneratedNameScheme.AsPrefixedPreviousOwnerNameReplacingEnchantments:
                 {
                     return rarityClass.HideRarityLabelInName
-                        ? $"{GetNameWithPossessiveS(ConfiguredNameGenerator.Next())} " +
-                          $"{itemName}"
-                        : $"{GetNameWithPossessiveS(ConfiguredNameGenerator.Next())} " +
-                          $"{rarityClass.Label} {itemName}";
+                        ? $""
+                        : $"{rarityClass.Label} {itemName}";
                 }
                 default:
                     goto case GeneratedNameScheme.DontUse;
